@@ -16,7 +16,9 @@ A Model Context Protocol (MCP) implementation that enables secure interaction wi
 
 ## Installation 
 ### Manual Installation
-```git clone https://github.com/CHuiV123/mysql_mcp_server_LangflowCompatible.git```
+```bash
+git clone https://github.com/CHuiV123/mysql_mcp_server_LangflowCompatible.git
+```
 
 
 
