@@ -59,9 +59,9 @@ Upon successful server start up, you shall see "mysql_mcp_server - INFO - Starti
 1. Go to Langflow setting, look for MCP server.
 2. Click **Add MCP Server**
 3. Select **STDIO**
-4. Server name **MySQL_MCP**
-5. Command **python**
-6. Arguments **your directory path of server.py**
+4. Server name= **MySQL_MCP**
+5. Command= **python**
+6. Arguments= **your directory path of server.py**
 7. Add environment variable
 ```
 MYSQL_HOST= **YOUR_HOST**
