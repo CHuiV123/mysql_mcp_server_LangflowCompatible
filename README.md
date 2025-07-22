@@ -14,79 +14,12 @@ A Model Context Protocol (MCP) implementation that enables secure interaction wi
 - Secure database access through environment variables
 - Comprehensive logging
 
-## Installation
+## Installation 
 ### Manual Installation
-```bash
-pip install mysql-mcp-server
-```
+```git clone ```
 
-### Installing via Smithery
-To install MySQL MCP Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/mysql-mcp-server):
-```bash
-npx -y @smithery/cli install mysql-mcp-server --client claude
-```
 
-## Configuration
-Set the following environment variables:
-```bash
-MYSQL_HOST=localhost     # Database host
-MYSQL_PORT=3306         # Optional: Database port (defaults to 3306 if not specified)
-MYSQL_USER=your_username
-MYSQL_PASSWORD=your_password
-MYSQL_DATABASE=your_database
-```
 
-## Usage
-### With Claude Desktop
-Add this to your `claude_desktop_config.json`:
-```json
-{
-  "mcpServers": {
-    "mysql": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "path/to/mysql_mcp_server",
-        "run",
-        "mysql_mcp_server"
-      ],
-      "env": {
-        "MYSQL_HOST": "localhost",
-        "MYSQL_PORT": "3306",
-        "MYSQL_USER": "your_username",
-        "MYSQL_PASSWORD": "your_password",
-        "MYSQL_DATABASE": "your_database"
-      }
-    }
-  }
-}
-```
-
-### With Visual Studio Code
-Add this to your `mcp.json`:
-```json
-{
-  "servers": {
-      "mysql": {
-            "type": "stdio",
-            "command": "uvx",
-            "args": [
-                "--from",
-                "mysql-mcp-server",
-                "mysql_mcp_server"
-            ],
-      "env": {
-        "MYSQL_HOST": "localhost",
-        "MYSQL_PORT": "3306",
-        "MYSQL_USER": "your_username",
-        "MYSQL_PASSWORD": "your_password",
-        "MYSQL_DATABASE": "your_database"
-      }
-    }
-  }
-}
-```
-Note: Will need to install uv for this to work
 
 ### Debugging with MCP Inspector
 While MySQL MCP Server isn't intended to be run standalone or directly from the command line with Python, you can use the MCP Inspector to debug it.
