@@ -40,46 +40,70 @@ app = Server("mysql_mcp_server")
 
 @app.list_resources()
 async def list_resources() -> list[Resource]:
+    """List MySQL tables as resources."""
     config = get_db_config()
     try:
+        logger.info(f"Connecting to MySQL with charset: {config.get('charset')}, collation: {config.get('collation')}")
         with connect(**config) as conn:
+            logger.info(f"Successfully connected to MySQL server version: {conn.get_server_info()}")
             with conn.cursor() as cursor:
                 cursor.execute("SHOW TABLES")
                 tables = cursor.fetchall()
-                return [
-                    Resource(
-                        uri=f"mysql://{table[0]}/data",
-                        name=f"Table: {table[0]}",
-                        mimeType="text/plain",
-                        description=f"Data in table: {table[0]}"
+                logger.info(f"Found tables: {tables}")
+
+                resources = []
+                for table in tables:
+                    resources.append(
+                        Resource(
+                            uri=f"mysql://{table[0]}/data",
+                            name=f"Table: {table[0]}",
+                            mimeType="text/plain",
+                            description=f"Data in table: {table[0]}"
+                        )
                     )
-                    for table in tables
-                ]
+                return resources
     except Error as e:
-        logger.error(f"Error listing resources: {e}")
+        logger.error(f"Failed to list resources: {str(e)}")
+        logger.error(f"Error code: {e.errno}, SQL state: {e.sqlstate}")
         return []
 
 @app.read_resource()
 async def read_resource(uri: AnyUrl) -> str:
+    """Read table contents."""
     config = get_db_config()
-    table = str(uri)[8:].split("/")[0]
+    uri_str = str(uri)
+    logger.info(f"Reading resource: {uri_str}")
+
+    if not uri_str.startswith("mysql://"):
+        raise ValueError(f"Invalid URI scheme: {uri_str}")
+
+    parts = uri_str[8:].split('/')
+    table = parts[0]
+
     try:
+        logger.info(f"Connecting to MySQL with charset: {config.get('charset')}, collation: {config.get('collation')}")
         with connect(**config) as conn:
+            logger.info(f"Successfully connected to MySQL server version: {conn.get_server_info()}")
             with conn.cursor() as cursor:
                 cursor.execute(f"SELECT * FROM {table} LIMIT 100")
                 columns = [desc[0] for desc in cursor.description]
                 rows = cursor.fetchall()
-                return "\n".join([",".join(columns)] + [",".join(map(str, row)) for row in rows])
+                result = [",".join(map(str, row)) for row in rows]
+                return "\n".join([",".join(columns)] + result)
+
     except Error as e:
-        logger.error(f"Error reading resource: {e}")
-        raise RuntimeError(f"Error: {e}")
+        logger.error(f"Database error reading resource {uri}: {str(e)}")
+        logger.error(f"Error code: {e.errno}, SQL state: {e.sqlstate}")
+        raise RuntimeError(f"Database error: {str(e)}")
 
 @app.list_tools()
 async def list_tools() -> list[Tool]:
+    """List available MySQL tools."""
+    logger.info("Listing tools...")
     return [
         Tool(
             name="execute_sql",
-            description="Run custom SQL queries.",
+            description="Execute an SQL query on the MySQL server",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -95,39 +119,52 @@ async def list_tools() -> list[Tool]:
 
 @app.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
+    """Execute SQL commands."""
     config = get_db_config()
-    logger.info(f"Tool called: {name} with arguments: {arguments}")
+    logger.info(f"Calling tool: {name} with arguments: {arguments}")
 
     if name != "execute_sql":
         raise ValueError(f"Unknown tool: {name}")
 
     query = arguments.get("query")
     if not query:
-        raise ValueError("Missing 'query' parameter")
+        raise ValueError("Query is required")
 
     try:
-        conn = connect(**config)
-        conn.autocommit = True  # ✅ Explicitly enable autocommit
-
-        with conn:
+        logger.info(f"Connecting to MySQL with charset: {config.get('charset')}, collation: {config.get('collation')}")
+        with connect(**config) as conn:
+            logger.info(f"Successfully connected to MySQL server version: {conn.get_server_info()}")
             with conn.cursor() as cursor:
-                logger.info(f"Executing query: {query}")
                 cursor.execute(query)
 
-                if cursor.description:
-                    # SELECT query
-                    columns = [desc[0] for desc in cursor.description]
-                    rows = cursor.fetchall()
-                    result = [",".join(columns)] + [",".join(map(str, row)) for row in rows]
+                # Special handling for SHOW TABLES
+                if query.strip().upper().startswith("SHOW TABLES"):
+                    tables = cursor.fetchall()
+                    result = ["Tables_in_" + config["database"]]  # Header
+                    result.extend([table[0] for table in tables])
                     return [TextContent(type="text", text="\n".join(result))]
+
+                # Handle all other queries that return result sets (SELECT, SHOW, DESCRIBE etc.)
+                elif cursor.description is not None:
+                    columns = [desc[0] for desc in cursor.description]
+                    try:
+                        rows = cursor.fetchall()
+                        result = [",".join(map(str, row)) for row in rows]
+                        return [TextContent(type="text", text="\n".join([",".join(columns)] + result))]
+                    except Error as e:
+                        logger.warning(f"Error fetching results: {str(e)}")
+                        return [TextContent(type="text", text=f"Query executed but error fetching results: {str(e)}")]
+
+                # Non-SELECT queries
                 else:
-                    # INSERT / UPDATE / DELETE
-                    return [TextContent(type="text", text=f"Success. Rows affected: {cursor.rowcount}")]
+                    conn.commit()
+                    return [TextContent(type="text", text=f"Query executed successfully. Rows affected: {cursor.rowcount}")]
 
     except Error as e:
-        logger.error(f"SQL Error: {e}")
-        return [TextContent(type="text", text=f"SQL Error: {e}")]
-
+        logger.error(f"Error executing SQL '{query}': {e}")
+        logger.error(f"Error code: {e.errno}, SQL state: {e.sqlstate}")
+        return [TextContent(type="text", text=f"Error executing query: {str(e)}")]
+        
 async def main():
     logger.info("Starting MCP STDIO server...")
     async with stdio_server() as (reader, writer):
