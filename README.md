@@ -62,7 +62,7 @@ Upon successful server start up, you shall see "mysql_mcp_server - INFO - Starti
 4. Server name **MySQL_MCP**
 5. Command **python**
 6. Arguments **your directory path of server.py**
-7. Environment variable
+7. Add environment variable
 ```
 MYSQL_HOST= **YOUR_HOST**
 MYSQL_PORT= **YOUR_PORT**
