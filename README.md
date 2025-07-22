@@ -22,7 +22,7 @@ A Model Context Protocol (MCP) implementation that enables secure interaction wi
 cd desktop
 ```
    
-2. 
+2. Cloning the repo
 ```bash
 git clone https://github.com/CHuiV123/mysql_mcp_server_LangflowCompatible.git
 ```
