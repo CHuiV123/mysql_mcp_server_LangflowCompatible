@@ -53,6 +53,26 @@ uv --directory . run mysql_mcp_server
 
 Upon successful server start up, you shall see "mysql_mcp_server - INFO - Starting MCP STDIO server..."
 
+## Setting up in Langflow MCPTools
+*** pre-requisite, at this point MySQL MCP server should be already up and running. 
+
+1. Go to Langflow setting, look for MCP server.
+2. Click **Add MCP Server**
+3. Select **STDIO**
+4. Server name **MySQL_MCP**
+5. Command **python**
+6. Arguments **your directory path of server.py**
+7. Environment variable
+```
+MYSQL_HOST= **YOUR_HOST**
+MYSQL_PORT= **YOUR_PORT**
+MYSQL_USER= **YOUR_USER_NAME**
+MYSQL_PASSWORD= **YOUR_PASSWORD**
+MYSQL_DATABASE= **YOUR_DATABASE_NAME**
+```
+8. Click **Add server**
+9. Restart Langflow
+
 
 ### Debugging with MCP Inspector
 While MySQL MCP Server isn't intended to be run standalone or directly from the command line with Python, you can use the MCP Inspector to debug it.
@@ -102,19 +122,6 @@ See [MySQL Security Configuration Guide](https://github.com/designcomputer/mysql
 - Security best practices
 
 ⚠️ IMPORTANT: Always follow the principle of least privilege when configuring database access.
-
-'---------'
-
-## Setting up in Langflow MCPTools
-
-1. Go to Langflow setting, look for MCP server.
-2. 
-3. Click 'Add MCP Server" 
-
-
-
-
-
 
 ## License
 MIT License - see LICENSE file for details.
