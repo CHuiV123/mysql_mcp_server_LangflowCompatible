@@ -16,11 +16,42 @@ A Model Context Protocol (MCP) implementation that enables secure interaction wi
 
 ## Installation 
 ### Manual Installation
+
+1. Open up Windows CMD, cd to desktop location.
+```bash
+cd desktop
+```
+   
+2. 
 ```bash
 git clone https://github.com/CHuiV123/mysql_mcp_server_LangflowCompatible.git
 ```
 
+3. Get into the folder directory:
+```bash
+cd mysql_mcp_server_LangflowCompatible
+```
 
+4. Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
+5. set up environment variable as below, replace all the "<-CHANGE THIS" section:
+```bash
+set MYSQL_HOST="YOUR_DATABASE_HOST" <-CHANGE THIS
+set MYSQL_PORT=3306 <-CHANGE THIS IF YOUR DATABASE IS NOT RUNNING ON 3306
+set MYSQL_USER="YOUR_USER_NAME" <-CHANGE THIS
+set MYSQL_PASSWORD="YOUR_PASSWORD" <-CHANGE THIS
+set MYSQL_DATABASE="yOUR_DATABASE_NAME" <-CHANGE THIS
+```
+
+6. Start the server:
+```bash
+uv --directory . run mysql_mcp_server
+```
+
+Upon successful server start up, you shall see "mysql_mcp_server - INFO - Starting MCP STDIO server..."
 
 
 ### Debugging with MCP Inspector
@@ -71,6 +102,19 @@ See [MySQL Security Configuration Guide](https://github.com/designcomputer/mysql
 - Security best practices
 
 ⚠️ IMPORTANT: Always follow the principle of least privilege when configuring database access.
+
+'---------'
+
+## Setting up in Langflow MCPTools
+
+1. Go to Langflow setting, look for MCP server.
+2. 
+3. Click 'Add MCP Server" 
+
+
+
+
+
 
 ## License
 MIT License - see LICENSE file for details.
