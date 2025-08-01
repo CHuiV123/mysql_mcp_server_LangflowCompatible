@@ -1,4 +1,5 @@
-# server.py (MCP STDIO-Compatible)
+# server.py (Optimized for Langflow MCP via STDIO)
+
 import asyncio
 import logging
 import os
@@ -9,7 +10,7 @@ from mcp.types import Resource, Tool, TextContent
 from pydantic import AnyUrl
 from mcp.server.stdio import stdio_server
 
-# Log to stderr to not interfere with STDIO stream
+# --- Logging setup: log to stderr (not STDIO)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -17,6 +18,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("mysql_mcp_server")
 
+# --- Database config from environment
 def get_db_config():
     config = {
         "host": os.getenv("MYSQL_HOST", "localhost"),
@@ -26,80 +28,62 @@ def get_db_config():
         "database": os.getenv("MYSQL_DATABASE"),
         "charset": os.getenv("MYSQL_CHARSET", "utf8mb4"),
         "collation": os.getenv("MYSQL_COLLATION", "utf8mb4_unicode_ci"),
+        "autocommit": True,
         "sql_mode": os.getenv("MYSQL_SQL_MODE", "TRADITIONAL")
     }
     config = {k: v for k, v in config.items() if v is not None}
-
     if not all([config.get("user"), config.get("password"), config.get("database")]):
-        logger.error("Missing required database configuration.")
+        logger.error("Missing required database configuration: MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE")
         raise ValueError("Missing required database configuration")
-
     return config
 
+# --- MCP Server Setup
 app = Server("mysql_mcp_server")
 
 @app.list_resources()
 async def list_resources() -> list[Resource]:
-    """List MySQL tables as resources."""
     config = get_db_config()
     try:
-        logger.info(f"Connecting to MySQL with charset: {config.get('charset')}, collation: {config.get('collation')}")
         with connect(**config) as conn:
-            logger.info(f"Successfully connected to MySQL server version: {conn.get_server_info()}")
             with conn.cursor() as cursor:
                 cursor.execute("SHOW TABLES")
                 tables = cursor.fetchall()
-                logger.info(f"Found tables: {tables}")
-
-                resources = []
-                for table in tables:
-                    resources.append(
-                        Resource(
-                            uri=f"mysql://{table[0]}/data",
-                            name=f"Table: {table[0]}",
-                            mimeType="text/plain",
-                            description=f"Data in table: {table[0]}"
-                        )
+                return [
+                    Resource(
+                        uri=f"mysql://{table[0]}/data",
+                        name=f"Table: {table[0]}",
+                        mimeType="text/plain",
+                        description=f"Data in table: {table[0]}"
                     )
-                return resources
+                    for table in tables
+                ]
     except Error as e:
-        logger.error(f"Failed to list resources: {str(e)}")
-        logger.error(f"Error code: {e.errno}, SQL state: {e.sqlstate}")
+        logger.error(f"Error listing resources: {e} | Code: {e.errno}, SQL state: {e.sqlstate}")
         return []
 
 @app.read_resource()
 async def read_resource(uri: AnyUrl) -> str:
-    """Read table contents."""
     config = get_db_config()
     uri_str = str(uri)
-    logger.info(f"Reading resource: {uri_str}")
 
     if not uri_str.startswith("mysql://"):
-        raise ValueError(f"Invalid URI scheme: {uri_str}")
-
-    parts = uri_str[8:].split('/')
-    table = parts[0]
+        raise ValueError(f"Invalid URI: {uri_str}")
+    table = uri_str[8:].split('/')[0]
 
     try:
-        logger.info(f"Connecting to MySQL with charset: {config.get('charset')}, collation: {config.get('collation')}")
         with connect(**config) as conn:
-            logger.info(f"Successfully connected to MySQL server version: {conn.get_server_info()}")
             with conn.cursor() as cursor:
                 cursor.execute(f"SELECT * FROM {table} LIMIT 100")
                 columns = [desc[0] for desc in cursor.description]
                 rows = cursor.fetchall()
                 result = [",".join(map(str, row)) for row in rows]
                 return "\n".join([",".join(columns)] + result)
-
     except Error as e:
-        logger.error(f"Database error reading resource {uri}: {str(e)}")
-        logger.error(f"Error code: {e.errno}, SQL state: {e.sqlstate}")
+        logger.error(f"Error reading {uri_str}: {e} | Code: {e.errno}, SQL state: {e.sqlstate}")
         raise RuntimeError(f"Database error: {str(e)}")
 
 @app.list_tools()
 async def list_tools() -> list[Tool]:
-    """List available MySQL tools."""
-    logger.info("Listing tools...")
     return [
         Tool(
             name="execute_sql",
@@ -119,56 +103,50 @@ async def list_tools() -> list[Tool]:
 
 @app.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
-    """Execute SQL commands."""
     config = get_db_config()
-    logger.info(f"Calling tool: {name} with arguments: {arguments}")
 
     if name != "execute_sql":
         raise ValueError(f"Unknown tool: {name}")
 
     query = arguments.get("query")
     if not query:
-        raise ValueError("Query is required")
+        raise ValueError("Missing query")
 
     try:
-        logger.info(f"Connecting to MySQL with charset: {config.get('charset')}, collation: {config.get('collation')}")
         with connect(**config) as conn:
-            logger.info(f"Successfully connected to MySQL server version: {conn.get_server_info()}")
             with conn.cursor() as cursor:
                 cursor.execute(query)
 
-                # Special handling for SHOW TABLES
-                if query.strip().upper().startswith("SHOW TABLES"):
-                    tables = cursor.fetchall()
-                    result = ["Tables_in_" + config["database"]]  # Header
-                    result.extend([table[0] for table in tables])
-                    return [TextContent(type="text", text="\n".join(result))]
-
-                # Handle all other queries that return result sets (SELECT, SHOW, DESCRIBE etc.)
-                elif cursor.description is not None:
+                # Result sets (SELECT, SHOW, etc.)
+                if cursor.description:
                     columns = [desc[0] for desc in cursor.description]
                     try:
                         rows = cursor.fetchall()
                         result = [",".join(map(str, row)) for row in rows]
                         return [TextContent(type="text", text="\n".join([",".join(columns)] + result))]
                     except Error as e:
-                        logger.warning(f"Error fetching results: {str(e)}")
-                        return [TextContent(type="text", text=f"Query executed but error fetching results: {str(e)}")]
+                        logger.warning(f"Query executed but fetch failed: {e}")
+                        return [TextContent(type="text", text=f"Fetch error: {e}")]
 
-                # Non-SELECT queries
-                else:
-                    conn.commit()
-                    return [TextContent(type="text", text=f"Query executed successfully. Rows affected: {cursor.rowcount}")]
-
+                # Non-result queries
+                conn.commit()
+                return [TextContent(type="text", text=f"Query executed. Rows affected: {cursor.rowcount}")]
     except Error as e:
-        logger.error(f"Error executing SQL '{query}': {e}")
-        logger.error(f"Error code: {e.errno}, SQL state: {e.sqlstate}")
+        logger.error(f"SQL execution error: {e} | Code: {e.errno}, SQL state: {e.sqlstate}")
         return [TextContent(type="text", text=f"Error executing query: {str(e)}")]
-        
+
+# --- Entry point
 async def main():
-    logger.info("Starting MCP STDIO server...")
-    async with stdio_server() as (reader, writer):
-        await app.run(reader, writer, app.create_initialization_options())
+    print("Starting MySQL MCP Server...", file=sys.stderr)
+    config = get_db_config()
+    print(f"🔧 DB Config -> Host: {config['host']} | User: {config['user']} | DB: {config['database']}", file=sys.stderr)
+
+    try:
+        async with stdio_server() as (reader, writer):
+            await app.run(reader, writer, app.create_initialization_options())
+    except Exception as e:
+        logger.error(f"Fatal server error: {e}", exc_info=True)
+        raise
 
 if __name__ == "__main__":
     asyncio.run(main())
