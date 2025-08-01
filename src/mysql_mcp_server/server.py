@@ -1,4 +1,3 @@
-# server.py (Langflow MCP STDIO-Compatible)
 import asyncio
 import logging
 import os
@@ -7,8 +6,8 @@ from mysql.connector import connect, Error
 from mcp.server import Server
 from mcp.types import Resource, Tool, TextContent
 from pydantic import AnyUrl
-from mcp.server.stdio import stdio_server
 
+# Configure logging
 # Log to stderr to not interfere with STDIO stream
 logging.basicConfig(
     level=logging.INFO,
@@ -18,24 +17,34 @@ logging.basicConfig(
 logger = logging.getLogger("mysql_mcp_server")
 
 def get_db_config():
+    """Get database configuration from environment variables."""
     config = {
-        "host": "localhost",
-        "port": 3306,
-        "user": "root",
-        "password": "admin",
-        "database": "langflow",
+        "host": os.getenv("MYSQL_HOST", "localhost"),
+        "port": int(os.getenv("MYSQL_PORT", "3306")),
+        "user": os.getenv("MYSQL_USER"),
+        "password": os.getenv("MYSQL_PASSWORD"),
+        "database": os.getenv("MYSQL_DATABASE"),
+        # Add charset and collation to avoid utf8mb4_0900_ai_ci issues with older MySQL versions
+        # These can be overridden via environment variables for specific MySQL versions
         "charset": os.getenv("MYSQL_CHARSET", "utf8mb4"),
         "collation": os.getenv("MYSQL_COLLATION", "utf8mb4_unicode_ci"),
+        # Disable autocommit for better transaction control
+        "autocommit": True,
+        # Set SQL mode for better compatibility - can be overridden
         "sql_mode": os.getenv("MYSQL_SQL_MODE", "TRADITIONAL")
     }
+
+    # Remove None values to let MySQL connector use defaults if not specified
     config = {k: v for k, v in config.items() if v is not None}
 
     if not all([config.get("user"), config.get("password"), config.get("database")]):
-        logger.error("Missing required database configuration.")
+        logger.error("Missing required database configuration. Please check environment variables:")
+        logger.error("MYSQL_USER, MYSQL_PASSWORD, and MYSQL_DATABASE are required")
         raise ValueError("Missing required database configuration")
 
     return config
 
+# Initialize server
 app = Server("mysql_mcp_server")
 
 @app.list_resources()
@@ -166,9 +175,30 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         return [TextContent(type="text", text=f"Error executing query: {str(e)}")]
 
 async def main():
-    logger.info("Starting MCP STDIO server...")
-    async with stdio_server() as (reader, writer):
-        await app.run(reader, writer, app.create_initialization_options())
+    """Main entry point to run the MCP server."""
+    from mcp.server.stdio import stdio_server
+
+    # Add additional debug output
+    print("Starting MySQL MCP server with config:", file=sys.stderr)
+    config = get_db_config()
+    print(f"Host: {config['host']}", file=sys.stderr)
+    print(f"Port: {config['port']}", file=sys.stderr)
+    print(f"User: {config['user']}", file=sys.stderr)
+    print(f"Database: {config['database']}", file=sys.stderr)
+
+    logger.info("Starting MySQL MCP server...")
+    logger.info(f"Database config: {config['host']}/{config['database']} as {config['user']}")
+
+    async with stdio_server() as (read_stream, write_stream):
+        try:
+            await app.run(
+                read_stream,
+                write_stream,
+                app.create_initialization_options()
+            )
+        except Exception as e:
+            logger.error(f"Server error: {str(e)}", exc_info=True)
+            raise
 
 if __name__ == "__main__":
     asyncio.run(main())
