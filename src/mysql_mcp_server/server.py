@@ -139,7 +139,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 async def main():
     print("Starting MySQL MCP Server...", file=sys.stderr)
     config = get_db_config()
-    print(f"🔧 DB Config -> Host: {config['host']} | User: {config['user']} | DB: {config['database']}", file=sys.stderr)
+    print(f"DB Config -> Host: {config['host']} | User: {config['user']} | DB: {config['database']}", file=sys.stderr)
 
     try:
         async with stdio_server() as (reader, writer):
