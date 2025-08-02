@@ -83,7 +83,7 @@ Upon successful server start up, you shall see "mysql_mcp_server - INFO - Starti
 }
 ```
 8. Click **Add server**
-9. Restart Langflow
+9. Restart Langflow (**If necessary)
 
 
 ### Debugging with MCP Inspector
