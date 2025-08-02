@@ -58,17 +58,30 @@ Upon successful server start up, you shall see "mysql_mcp_server - INFO - Starti
 
 1. Go to Langflow setting, look for MCP server.
 2. Click **Add MCP Server**
-3. Select **STDIO**
+3. Select **JSON**
 4. Server name= **MySQL_MCP**
-5. Command= **python**
-6. Arguments= **your directory path of server.py**
-7. Add environment variable
+5. Copy and paste this config under JSON section
 ```
-MYSQL_HOST= **YOUR_HOST**
-MYSQL_PORT= **YOUR_PORT**
-MYSQL_USER= **YOUR_USER_NAME**
-MYSQL_PASSWORD= **YOUR_PASSWORD**
-MYSQL_DATABASE= **YOUR_DATABASE_NAME**
+{
+  "mcpServers": {
+    "mysql": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "path/to/mysql_mcp_server", 
+        "run",
+        "mysql_mcp_server"
+      ],
+      "env": {
+        "MYSQL_HOST": "localhost",
+        "MYSQL_PORT": "3306",
+        "MYSQL_USER": "your_username",
+        "MYSQL_PASSWORD": "your_password",
+        "MYSQL_DATABASE": "your_database"
+      }
+    }
+  }
+}
 ```
 8. Click **Add server**
 9. Restart Langflow
