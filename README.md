@@ -59,8 +59,7 @@ Upon successful server start up, you shall see "mysql_mcp_server - INFO - Starti
 1. Go to Langflow setting, look for MCP server.
 2. Click **Add MCP Server**
 3. Select **JSON**
-4. Server name= **MySQL_MCP**
-5. Copy and paste this config under JSON section
+4. Copy and paste this config under JSON section
 ```
 {
   "mcpServers": {
